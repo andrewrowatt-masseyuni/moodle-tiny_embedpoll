@@ -94,13 +94,14 @@ first, because `PluginManager.add` cannot take a promise.
   * the page's stylesheets;
   * the preview HTML;
   * the "Click to edit" hint;
-  * the move buttons from `move.js`.
+  * the move and insert space buttons from `move.js`.
 
   A `MutationObserver` on the body re-attaches the shadow root whenever TinyMCE rebuilds a token.
   Keys are batched into a single `local_embedpoll_get_previews` call (`setTimeout(0)`). A
   per-editor batch counter stops a stale answer from overwriting a fresher one after an edit.
 * `move.js`: swaps the token with its previous or next element sibling, skipping
-  `data-mce-bogus` scaffolding, in one undo step.
+  `data-mce-bogus` scaffolding, in one undo step. Its insert space buttons put an empty
+  `forced_root_block` before or after the token, also in one undo step, and the cursor in it.
 
 This plugin has no `styles.css`. All of its CSS lives in template strings in `tokens.js` (the
 editor's document), `previews.js` and `move.js` (the shadow root).
@@ -114,6 +115,12 @@ editor's document), `previews.js` and `move.js` (the shadow root).
 * **XPath cannot see into the shadow root.** Behat must use the steps in
   `tests/behat/behat_tiny_embedpoll.php`, which read it through `evaluate_javascript_for_editor`.
   `the "…" TinyMCE editor should not save "…"` is what pins that the preview stays out of the text.
+  The move and insert space steps click their buttons with the pointer, over the poll first,
+  because the buttons take no clicks until it is hovered.
+* **To type after an insert space button, use `I type "…" in the "…" TinyMCE editor`.** Core's
+  `I type "…"` sends keys to the page, and once the editor has taken focus from script Chrome
+  delivers them without inserting any text. This plugin's step sends them to the focused element
+  in the editor's own frame.
 * **The plugin is enabled for `viewresults` as well as `manage`.** A non-editing teacher still edits
   the text around polls, and without this plugin's `tokens.js` they would type into the tokens or
   break them. Gate *what is offered* on `canmanage`, not *whether the plugin loads*.
@@ -133,6 +140,9 @@ editor's document), `previews.js` and `move.js` (the shadow root).
   finding the token by key when the original is no longer `isConnected`.
 * **Only keys that match `keyPattern` (`/^[0-9a-f]{16}$/`) are sent to the server or inserted.**
   `placeToken()` throws on anything else.
+* **Each line of the poll form has its own "Delete option N" button**, which `"Delete" "button"`
+  also matches, so a step that deletes a poll from its form clicks Delete in `.modal-footer`. The
+  lines are `local_embedpoll`'s: set one by its placeholder, `I set the field "Option 1" to "…"`.
 * **Wrap every new async path in `core/pending`**, as `send()` and `addDelete()` do, or Behat races
   it.
 * **`@font-face` is ignored inside a shadow root.** `fontFaces()` copies the page's Font Awesome

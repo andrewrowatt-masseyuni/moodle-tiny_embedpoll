@@ -54,11 +54,13 @@ const tokenStyle = (clickable) => `
 `;
 
 export const getSetup = async() => {
-    const [chip, hint, up, down] = await getStrings([
+    const [chip, hint, up, down, above, after] = await getStrings([
         {key: 'chiplabel', component},
         {key: 'clicktoedit', component},
         {key: 'moveup', component},
         {key: 'movedown', component},
+        {key: 'insertspaceabove', component},
+        {key: 'insertspaceafter', component},
     ]);
 
     return (editor) => {
@@ -79,7 +81,7 @@ export const getSetup = async() => {
         editor.on('init', () => {
             editor.dom.addStyle(tokenStyle(canManage(editor)));
             // How to edit it, to those who may.
-            watch(editor, {chip, hint: canManage(editor) ? hint : '', up, down});
+            watch(editor, {chip, hint: canManage(editor) ? hint : '', up, down, above, after});
         });
 
         // Whenever content arrives - initial load, paste, undo - make every token non-editable, so

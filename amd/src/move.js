@@ -14,7 +14,8 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Up and down buttons that move a poll token past the element before or after it.
+ * Buttons that move a poll token past the element before or after it, or insert space above or
+ * after it.
  *
  * The buttons live in the token's shadow root beside its preview (see previews), so like the preview
  * they are never part of the text: nothing has to strip them on the way out, and adding them is not
@@ -22,6 +23,10 @@
  *
  * A move swaps the token with its neighbour among its parent's children - one paragraph, heading or
  * other block at a time - in a single undo step.
+ *
+ * Inserting space puts an empty paragraph above or after the token, with the cursor in it, also in
+ * a single undo step. The cursor cannot enter a token, so without it a poll at the start or end of
+ * the text, or next to another poll, would leave nowhere to type on that side of it.
  *
  * @module     tiny_embedpoll/move
  * @copyright  2026 Andrew Rowatt <A.J.Rowatt@massey.ac.nz>
@@ -31,12 +36,24 @@
 /** @var {string} The class of the element in each shadow root that holds the buttons. */
 const CONTROLSCLASS = 'tiny-embedpoll-move';
 
-/** @var {object} Each direction's arrow. */
-const ARROWS = {
-    up: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
-        '<path fill="currentColor" d="M8 3.5 2.5 9l1.06 1.06L8 5.62l4.44 4.44L13.5 9z"/></svg>',
-    down: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
-        '<path fill="currentColor" d="M8 12.5 13.5 7l-1.06-1.06L8 10.38 3.56 5.94 2.5 7z"/></svg>',
+/** @var {string} The start of every button's icon. */
+const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">';
+
+/**
+ * A box, for the poll, in the icons that insert space.
+ *
+ * @param {number} y Where its top is.
+ * @returns {string}
+ */
+const box = (y) => `<rect x="1.75" y="${y}" width="12.5" height="5.5" rx="1" fill="none" stroke="currentColor" ` +
+    'stroke-width="1.5"/>';
+
+/** @var {object} Each button's icon: an arrow to move, or a plus above or below a box - the poll - to insert space. */
+const ICONS = {
+    up: SVG + '<path fill="currentColor" d="M8 3.5 2.5 9l1.06 1.06L8 5.62l4.44 4.44L13.5 9z"/></svg>',
+    down: SVG + '<path fill="currentColor" d="M8 12.5 13.5 7l-1.06-1.06L8 10.38 3.56 5.94 2.5 7z"/></svg>',
+    above: SVG + '<path fill="currentColor" d="M7.25 1h1.5v2h2v1.5h-2v2h-1.5v-2h-2V3h2z"/>' + box(8.75) + '</svg>',
+    after: SVG + box(1.75) + '<path fill="currentColor" d="M7.25 9.5h1.5v2h2V13h-2v2h-1.5v-2h-2v-1.5h2z"/></svg>',
 };
 
 /**
@@ -129,6 +146,35 @@ const move = (editor, token, direction) => {
 };
 
 /**
+ * Put an empty paragraph above or after a token, and the cursor in it.
+ *
+ * @param {TinyMCE} editor
+ * @param {HTMLElement} token
+ * @param {string} where above or after.
+ */
+const insertSpace = (editor, token, where) => {
+    if (editor.mode.isReadOnly()) {
+        return;
+    }
+
+    const block = editor.dom.create(editor.options.get('forced_root_block') || 'p');
+    // TinyMCE's own filler for an empty block. It keeps the block open, and is never saved.
+    block.innerHTML = '<br data-mce-bogus="1">';
+
+    editor.undoManager.transact(() => {
+        if (where === 'above') {
+            token.before(block);
+        } else {
+            token.after(block);
+        }
+    });
+    editor.focus();
+    editor.selection.setCursorLocation(block, 0);
+    editor.selection.scrollIntoView(block);
+    editor.nodeChanged();
+};
+
+/**
  * Add the buttons to a token's shadow root.
  *
  * @param {TinyMCE} editor
@@ -136,6 +182,8 @@ const move = (editor, token, direction) => {
  * @param {object} labels
  * @param {string} labels.up
  * @param {string} labels.down
+ * @param {string} labels.above The insert space above button's label.
+ * @param {string} labels.after The insert space after button's label.
  */
 export const addMoveControls = (editor, root, labels) => {
     const token = root.host;
@@ -144,20 +192,30 @@ export const addMoveControls = (editor, root, labels) => {
     const controls = doc.createElement('div');
     controls.className = CONTROLSCLASS;
 
-    const buttons = ['up', 'down'].map((direction) => {
+    const makeButton = (name) => {
         const button = doc.createElement('button');
         button.type = 'button';
         // Out of the editor's tab order, as the rest of the token is.
         button.tabIndex = -1;
+        button.title = labels[name];
+        button.setAttribute('aria-label', labels[name]);
+        button.innerHTML = ICONS[name];
+        return button;
+    };
+
+    const moves = ['up', 'down'].map((direction) => {
+        const button = makeButton(direction);
         button.dataset.direction = direction;
-        button.title = labels[direction];
-        button.setAttribute('aria-label', labels[direction]);
-        button.innerHTML = ARROWS[direction];
         return button;
     });
-    controls.append(...buttons);
+    const inserts = ['above', 'after'].map((where) => {
+        const button = makeButton(where);
+        button.dataset.insert = where;
+        return button;
+    });
+    controls.append(...moves, ...inserts);
 
-    const update = () => buttons.forEach((button) => {
+    const update = () => moves.forEach((button) => {
         button.disabled = !neighbour(token, button.dataset.direction);
     });
 
@@ -168,10 +226,15 @@ export const addMoveControls = (editor, root, labels) => {
         event.stopPropagation();
 
         const button = event.target.closest('button');
-        if (button && !button.disabled) {
-            move(editor, token, button.dataset.direction);
-            update();
+        if (!button || button.disabled) {
+            return;
         }
+        if (button.dataset.direction) {
+            move(editor, token, button.dataset.direction);
+        } else {
+            insertSpace(editor, token, button.dataset.insert);
+        }
+        update();
     });
     token.addEventListener('mouseenter', update);
 

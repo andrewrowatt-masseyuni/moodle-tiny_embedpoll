@@ -5,7 +5,8 @@ Feature: Adding and editing polls from the editor
   I need to add, edit, move and delete polls from the editor, and see them as students will
 
   Background:
-    Given the following "courses" exist:
+    Given the "embedpoll" filter is "on"
+    And the following "courses" exist:
       | fullname | shortname |
       | Course 1 | C1        |
     And the following "users" exist:
@@ -32,11 +33,8 @@ Feature: Adding and editing polls from the editor
     And I follow "Edit chapter \"1. Chapter 1\""
     When I expand all toolbars for the "Content" TinyMCE editor
     And I click on the "Poll" button for the "Content" TinyMCE editor
-    And I set the field "options" to multiline:
-      """
-      Uniquered
-      Uniquegreen
-      """
+    And I set the field "Option 1" to "Uniquered"
+    And I set the field "Option 2" to "Uniquegreen"
     And I click on "Save changes" "button" in the "Poll" "dialogue"
     Then the "Content" TinyMCE editor should preview a poll with "Uniquered"
     And the "Content" TinyMCE editor should preview a poll with "No votes yet"
@@ -62,11 +60,8 @@ Feature: Adding and editing polls from the editor
     And I set the field "Text" to "<p>What do you think?</p>"
     When I expand all toolbars for the "Text" TinyMCE editor
     And I click on the "Poll" button for the "Text" TinyMCE editor
-    And I set the field "options" to multiline:
-      """
-      Agree
-      Disagree
-      """
+    And I set the field "Option 1" to "Agree"
+    And I set the field "Option 2" to "Disagree"
     And I click on "Save changes" "button" in the "Poll" "dialogue"
     And the "Text" TinyMCE editor should preview a poll with "Disagree"
     And I press "Save and return to course"
@@ -84,11 +79,8 @@ Feature: Adding and editing polls from the editor
     And I follow "Edit chapter \"1. Chapter 1\""
     And I expand all toolbars for the "Content" TinyMCE editor
     And I click on the "Poll" button for the "Content" TinyMCE editor
-    And I set the field "options" to multiline:
-      """
-      Yes
-      No
-      """
+    And I set the field "Option 1" to "Yes"
+    And I set the field "Option 2" to "No"
     And I click on "Save changes" "button" in the "Poll" "dialogue"
     And I press "Save changes"
     And I log out
@@ -100,12 +92,9 @@ Feature: Adding and editing polls from the editor
     And I follow "Edit chapter \"1. Chapter 1\""
     When I click on the poll with "Yes" in the "Content" TinyMCE editor
     Then I should see "This poll has 1 vote." in the "Poll" "dialogue"
-    And I set the field "options" to multiline:
-      """
-      Not sure
-      No
-      Yes
-      """
+    And I set the field "Option 1" to "Not sure"
+    And I set the field "Option 2" to "No"
+    And I set the field "Option 3" to "Yes"
     And I click on "Save changes" "button" in the "Poll" "dialogue"
     And the "Content" TinyMCE editor should preview a poll with "Not sure"
     And the "Content" TinyMCE editor should preview a poll with "Yes 100%"
@@ -120,19 +109,82 @@ Feature: Adding and editing polls from the editor
     And I follow "Edit chapter \"1. Chapter 1\""
     And I expand all toolbars for the "Content" TinyMCE editor
     And I click on the "Poll" button for the "Content" TinyMCE editor
-    And I set the field "options" to multiline:
-      """
-      Uniquered
-      Uniquegreen
-      """
+    And I set the field "Option 1" to "Uniquered"
+    And I set the field "Option 2" to "Uniquegreen"
     And I click on "Save changes" "button" in the "Poll" "dialogue"
     When I click on the poll with "Uniquered" in the "Content" TinyMCE editor
-    And I click on "Delete" "button" in the "Poll" "dialogue"
+    # In the footer, as each option's line has a "Delete option" button too.
+    And I click on "Delete" "button" in the ".modal-footer" "css_element"
     And I click on "Delete" "button" in the "Delete poll" "dialogue"
     Then the "Content" TinyMCE editor should not preview a poll with "Uniquered"
     And I press "Save changes"
     And I should see "Chapter text."
     And I should not see "Uniquered"
+
+  @javascript
+  Scenario: Options are written on lines of their own, which can be added, deleted and moved
+    Given I am on the "Course book" "book activity" page logged in as teacher1
+    And I turn editing mode on
+    And I follow "Edit chapter \"1. Chapter 1\""
+    And I expand all toolbars for the "Content" TinyMCE editor
+    When I click on the "Poll" button for the "Content" TinyMCE editor
+    Then "Option 3" "field" should exist in the "Poll" "dialogue"
+    And "Option 4" "field" should not exist in the "Poll" "dialogue"
+    And I set the field "Option 1" to "Uniquered"
+    And I set the field "Option 2" to "Uniquegreen"
+    And I set the field "Option 3" to "Uniqueblue"
+    And I click on "Add option" "button" in the "Poll" "dialogue"
+    And I set the field "Option 4" to "Uniqueyellow"
+    And I click on "Delete option 2" "button" in the "Poll" "dialogue"
+    And the field "Option 2" matches value "Uniqueblue"
+    # Enter or Space on a handle offers the places a line can move to, as dragging it would.
+    And I click on "Move option 3" "button" in the "Poll" "dialogue"
+    And I click on "To the top of the list" "link" in the "Move option 3" "dialogue"
+    And the field "Option 1" matches value "Uniqueyellow"
+    And the field "Option 2" matches value "Uniquered"
+    And the field "Option 3" matches value "Uniqueblue"
+    And I click on "Save changes" "button" in the "Poll" "dialogue"
+    And the "Content" TinyMCE editor should preview a poll with "Uniqueyellow"
+    And the "Content" TinyMCE editor should not preview a poll with "Uniquegreen"
+    And I click on the poll with "Uniqueyellow" in the "Content" TinyMCE editor
+    And the field "Option 1" matches value "Uniqueyellow"
+    And the field "Option 2" matches value "Uniquered"
+    And the field "Option 3" matches value "Uniqueblue"
+
+  @javascript
+  Scenario: Options the server refuses come back on the lines they were written on
+    Given I am on the "Course book" "book activity" page logged in as teacher1
+    And I turn editing mode on
+    And I follow "Edit chapter \"1. Chapter 1\""
+    And I expand all toolbars for the "Content" TinyMCE editor
+    When I click on the "Poll" button for the "Content" TinyMCE editor
+    And I set the field "Option 2" to "Uniquered"
+    And I click on "Save changes" "button" in the "Poll" "dialogue"
+    Then I should see "A poll needs at least 2 options." in the "Poll" "dialogue"
+    And the field "Option 1" matches value ""
+    And the field "Option 2" matches value "Uniquered"
+    And I set the field "Option 3" to "Uniquegreen"
+    And I click on "Save changes" "button" in the "Poll" "dialogue"
+    And the "Content" TinyMCE editor should preview a poll with "Uniquegreen"
+
+  @javascript
+  Scenario: A poll cannot have more options than the site allows
+    Given the following config values are set as admin:
+      | maxoptions | 4 | local_embedpoll |
+    And I am on the "Course book" "book activity" page logged in as teacher1
+    And I turn editing mode on
+    And I follow "Edit chapter \"1. Chapter 1\""
+    And I expand all toolbars for the "Content" TinyMCE editor
+    When I click on the "Poll" button for the "Content" TinyMCE editor
+    And I click on "Add option" "button" in the "Poll" "dialogue"
+    Then "Option 4" "field" should exist in the "Poll" "dialogue"
+    And "[data-action='local_embedpoll-addoption']" "css_element" should not be visible
+    And I hover "[data-region='local_embedpoll-maxoptions']" "css_element"
+    And I should see "You have reached the current maximum number of options."
+    And I click on "Delete option 4" "button" in the "Poll" "dialogue"
+    And "Option 4" "field" should not exist in the "Poll" "dialogue"
+    And "[data-action='local_embedpoll-addoption']" "css_element" should be visible
+    And "[data-region='local_embedpoll-maxoptions']" "css_element" should not be visible
 
   @javascript
   Scenario: Move a poll past the paragraphs around it
@@ -153,6 +205,26 @@ Feature: Adding and editing polls from the editor
     And I move the poll "down" in the "Content" TinyMCE editor
     And I press "Save changes"
     And "After." "text" should appear before "Uniquered" "button"
+
+  @javascript
+  Scenario: Insert space above and after a poll, to write there
+    Given the following "local_embedpoll > polls" exist:
+      | activity | embedkey         | options                |
+      | book1    | 0123456789abcdef | Uniquered, Uniquegreen |
+    # With nothing but the poll, there is nowhere to put the cursor on either side of it.
+    And the following "mod_book > chapters" exist:
+      | book        | title     | pagenum | content                                                               | contentformat |
+      | Course book | Chapter 2 | 2       | <div class="embedpoll-embed" data-embedpoll="0123456789abcdef"></div> | 1             |
+    And I am on the "Course book" "book activity" page logged in as teacher1
+    And I turn editing mode on
+    When I follow "Edit chapter \"2. Chapter 2\""
+    And I insert space "above" the poll in the "Content" TinyMCE editor
+    And I type "Uniquebefore" in the "Content" TinyMCE editor
+    And I insert space "after" the poll in the "Content" TinyMCE editor
+    And I type "Uniqueafter" in the "Content" TinyMCE editor
+    And I press "Save changes"
+    Then "Uniquebefore" "text" should appear before "Uniquered" "button"
+    And "Uniquegreen" "button" should appear before "Uniqueafter" "text"
 
   @javascript
   Scenario: A teacher who may not manage polls sees them in the editor but cannot change them

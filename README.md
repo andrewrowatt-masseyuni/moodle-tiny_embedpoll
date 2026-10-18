@@ -5,12 +5,15 @@ Part of **embedded polls**. The design for all three plugins is documented in
 
 This plugin adds a **Poll** button to the TinyMCE toolbar, and to the **Insert** menu.
 
-* **To add a poll:** with the cursor where the poll should go, click the button. Write the options
-  one per line, then save.
+* **To add a poll:** with the cursor where the poll should go, click the button. Write each option on
+  a line of its own, then save. Lines can be added, deleted, and dragged into order.
 * **To edit a poll:** click it, or put the cursor on it and click the button. The button shows as
   pressed while the cursor is on a poll. The form's footer also has **Delete**, which asks first and
   then removes the poll from the text in one undo step.
 * **To move a poll:** hover over it and use the up and down arrows at its bottom right.
+* **To write above or after a poll:** hover over it and use **Insert space above poll** or
+  **Insert space after poll**, beside the arrows. Each adds an empty paragraph, with the cursor in
+  it.
 
 The form is `local_embedpoll\form\embed_form`, opened with `core_form/modalform`. The server returns
 a key, and the token for that key is all this plugin ever puts in the text.

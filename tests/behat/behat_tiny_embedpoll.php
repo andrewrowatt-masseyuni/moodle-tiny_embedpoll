@@ -24,6 +24,7 @@
  */
 
 use Behat\Mink\Exception\ExpectationException;
+use Facebook\WebDriver\WebDriverBy;
 
 // NOTE: no MOODLE_INTERNAL test here, this file may be required by behat before including /config.php.
 require_once(__DIR__ . '/../../../../tests/behat/editor_tiny_helpers.php');
@@ -140,29 +141,85 @@ class behat_tiny_embedpoll extends behat_base {
     /**
      * Click the first poll's move up or move down button.
      *
-     * The buttons are in the token's shadow root, and only appear on hover, so they are clicked
-     * through the editor. Moving past nothing does nothing, as it does in the editor.
+     * The buttons are in the token's shadow root, and only appear on hover. Moving past nothing does
+     * nothing, as it does in the editor.
      *
      * @When /^I move the poll "(?P<direction_string>up|down)" in the "(?P<editor_string>(?:[^"]|\\")*)" TinyMCE editor$/
      * @param string $direction up or down.
      * @param string $locator The editor.
      */
     public function i_move_the_poll(string $direction, string $locator): void {
+        $this->click_poll_button($locator, "[data-direction=\"{$direction}\"]", "move {$direction}");
+    }
+
+    /**
+     * Click the first poll's insert space above or insert space after button.
+     *
+     * Like the move buttons, these are in the token's shadow root. They leave the cursor in the new
+     * paragraph, so the next step can type into it (I type "…" in the "…" TinyMCE editor).
+     *
+     * @When /^I insert space "(?P<where_string>above|after)" the poll in the "(?P<editor_string>(?:[^"]|\\")*)" TinyMCE editor$/
+     * @param string $where above or after.
+     * @param string $locator The editor.
+     */
+    public function i_insert_space_by_the_poll(string $where, string $locator): void {
+        $this->click_poll_button($locator, "[data-insert=\"{$where}\"]", "insert space {$where}");
+    }
+
+    /**
+     * Type into an editor, wherever its cursor is.
+     *
+     * Core's "I type" sends keys to the page. After the editor has taken focus from script, as the
+     * insert space buttons give it, Chrome delivers those keys to the editor without inserting any
+     * text. Keys sent to the element with focus in the editor's own frame are inserted.
+     *
+     * @When /^I type "(?P<text_string>(?:[^"]|\\")*)" in the "(?P<editor_string>(?:[^"]|\\")*)" TinyMCE editor$/
+     * @param string $text The text.
+     * @param string $locator The editor.
+     */
+    public function i_type_in_the_editor(string $text, string $locator): void {
         $this->require_tiny_tags();
 
-        $editorid = $this->get_textarea_for_locator($locator)->getAttribute('id');
-        $clicked = $this->evaluate_javascript_for_editor($editorid, <<<EOF
-            const button = instance.getBody().querySelector('div[data-embedpoll]')?.shadowRoot
-                ?.querySelector('.tiny-embedpoll-move button[data-direction="{$direction}"]');
-            button?.click();
-            resolve(Boolean(button));
-            EOF);
+        $webdriver = $this->getSession()->getDriver()->getWebDriver();
+        $this->execute('behat_general::switch_to_iframe', [$this->get_editor_iframe_name($locator)]);
+        try {
+            $webdriver->switchTo()->activeElement()->sendKeys($text);
+        } finally {
+            $this->execute('behat_general::switch_to_the_main_frame');
+        }
+    }
 
-        if (!$clicked) {
-            throw new ExpectationException(
-                "The \"{$locator}\" editor has no poll with a move {$direction} button.",
-                $this->getSession()
-            );
+    /**
+     * Click one of the buttons in the first poll's shadow root, as a teacher would.
+     *
+     * The pointer goes over the poll, which shows the buttons, and then clicks one. Until the poll
+     * is hovered, the buttons take no clicks.
+     *
+     * @param string $locator The editor.
+     * @param string $attribute An attribute selector for the button.
+     * @param string $name What the button does, for the error.
+     */
+    protected function click_poll_button(string $locator, string $attribute, string $name): void {
+        $this->require_tiny_tags();
+
+        $webdriver = $this->getSession()->getDriver()->getWebDriver();
+        $this->execute('behat_general::switch_to_iframe', [$this->get_editor_iframe_name($locator)]);
+        try {
+            $token = $webdriver->findElements(WebDriverBy::cssSelector('div[data-embedpoll]'))[0] ?? null;
+            $button = $token?->getShadowRoot()
+                ->findElements(WebDriverBy::cssSelector(".tiny-embedpoll-move button{$attribute}"))[0] ?? null;
+            if (!$button) {
+                throw new ExpectationException(
+                    "The \"{$locator}\" editor has no poll with a {$name} button.",
+                    $this->getSession()
+                );
+            }
+
+            // The pointer only goes where it can be seen. This scrolls the page, too, not just the editor.
+            $webdriver->executeScript('arguments[0].scrollIntoView({block: "center"});', [$token]);
+            $webdriver->action()->moveToElement($token)->moveToElement($button)->click()->perform();
+        } finally {
+            $this->execute('behat_general::switch_to_the_main_frame');
         }
     }
 

@@ -35,10 +35,10 @@
  * has no shadow root. Not every path fires an event (undo can rewrite the body directly), so a
  * MutationObserver finds tokens as they arrive.
  *
- * The shadow root also holds the buttons that move the token up and down (see move), and the
- * "Click to edit" hint, for the same reason: nothing in it is ever saved. Both are only there for a
- * teacher who may manage polls, and only show while the poll is hovered, so that otherwise the
- * preview looks exactly as the page will.
+ * The shadow root also holds the buttons that move the token up and down or insert space above or
+ * after it (see move), and the "Click to edit" hint, for the same reason: nothing in it is ever
+ * saved. Both are only there for a teacher who may manage polls, and only show while the poll is
+ * hovered, so that otherwise the preview looks exactly as the page will.
  *
  * @module     tiny_embedpoll/previews
  * @copyright  2026 Andrew Rowatt <A.J.Rowatt@massey.ac.nz>
@@ -313,6 +313,8 @@ export const refresh = (editor, key) => {
  * @param {string} labels.hint How to edit a poll, shown on hover, or '' for a teacher who may not.
  * @param {string} labels.up The move up button's label.
  * @param {string} labels.down The move down button's label.
+ * @param {string} labels.above The insert space above button's label.
+ * @param {string} labels.after The insert space after button's label.
  */
 export const watch = (editor, labels) => {
     states.set(editor, {
